@@ -447,6 +447,9 @@ func TestConfig_DigestConfig(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name,age"), os.ModePerm))
 		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("name,age,id"), os.ModePerm))
+		primaryColumns := digest.Positions{0}
+		valueColumns := digest.Positions{1, 2}
+		includeColumns := digest.Positions{0, 1, 2}
 
 		ctx, err := cmd.NewContext(
 			fs,
