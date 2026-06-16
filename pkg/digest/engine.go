@@ -79,7 +79,14 @@ func (e Engine) StreamDigests() (chan []Digest, chan error) {
 				close(errorChannel)
 				return
 			}
-			lines = normalizeLines(lines, e.config.Reorder)
+			lines, err = normalizeLines(lines, e.config.Reorder)
+			if err != nil {
+				wg.Wait()
+				close(digestChannel)
+				errorChannel <- err
+				close(errorChannel)
+				return
+			}
 
 			wg.Add(1)
 			go e.digestForLines(lines, digestChannel, wg)

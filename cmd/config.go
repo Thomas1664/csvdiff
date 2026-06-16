@@ -43,9 +43,9 @@ func NewContext(
 	deltaFilename string,
 	separator rune,
 	lazyQuotes bool,
-	titles ...bool,
+	titles bool,
 ) (*Context, error) {
-	titlesEnabled := len(titles) > 0 && titles[0]
+	titlesEnabled := titles
 	baseHeaders, err := getHeaders(fs, baseFilename, separator, lazyQuotes)
 	if err != nil {
 		return nil, fmt.Errorf("error in base-file: %v", err)
@@ -232,6 +232,12 @@ func getDeltaReorderPositions(baseHeaders, deltaHeaders []string) (digest.Positi
 			return nil, fmt.Errorf("duplicate title in delta-file: %s", title)
 		}
 		deltaByTitle[title] = i
+	}
+
+	for _, title := range deltaHeaders {
+		if _, exists := baseHeaderSet[title]; !exists {
+			return nil, fmt.Errorf("title in delta-file not present in base-file: %s", title)
+		}
 	}
 
 	reorder := make(digest.Positions, len(baseHeaders))

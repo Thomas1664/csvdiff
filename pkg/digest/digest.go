@@ -76,7 +76,13 @@ func readAndProcess(config *Config, reader *csv.Reader, digestChannel chan<- []D
 			errorChannel <- err
 			return
 		}
-		lines = normalizeLines(lines, config.Reorder)
+		lines, err = normalizeLines(lines, config.Reorder)
+		if err != nil {
+			wg.Wait()
+			close(digestChannel)
+			errorChannel <- err
+			return
+		}
 
 		wg.Add(1)
 		go createDigestForNLines(lines, config, digestChannel, &wg)

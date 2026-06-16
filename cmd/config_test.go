@@ -48,6 +48,7 @@ func TestPrimaryKeyPositions(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.out, ctx.GetPrimaryKeys())
@@ -93,6 +94,7 @@ func TestValueColumnPositions(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.out, ctx.GetValueColumns())
@@ -120,6 +122,7 @@ func TestNewContext(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 
 			assert.EqualError(t, err, "validation failed: specified format is not valid")
@@ -137,6 +140,7 @@ func TestNewContext(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 
 			assert.NoError(t, err)
@@ -153,6 +157,7 @@ func TestNewContext(t *testing.T) {
 				"/base.csv",
 				"/delta.csv",
 				',',
+				false,
 				false,
 			)
 
@@ -173,6 +178,7 @@ func TestNewContext(t *testing.T) {
 			"/base.csv",
 			"/delta.csv",
 			',',
+			false,
 			false,
 		)
 		assert.EqualError(t, err, "error in base-file: open "+string(os.PathSeparator)+"base.csv: file does not exist")
@@ -196,6 +202,7 @@ func TestNewContext(t *testing.T) {
 			"/delta.csv",
 			',',
 			false,
+			false,
 		)
 		assert.EqualError(t, err, "error in base-file: unable to process headers from csv file. EOF reached. invalid CSV file")
 	})
@@ -218,6 +225,7 @@ func TestNewContext(t *testing.T) {
 			"/delta.csv",
 			',',
 			false,
+			false,
 		)
 		assert.EqualError(t, err, "error in delta-file: unable to process headers from csv file. EOF reached. invalid CSV file")
 	})
@@ -236,6 +244,7 @@ func TestNewContext(t *testing.T) {
 			"/base.csv",
 			"/delta.csv",
 			',',
+			false,
 			false,
 		)
 		assert.NoError(t, err)
@@ -266,6 +275,7 @@ func TestNewContext(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 
 			assert.EqualError(t, err, "validation failed: --primary-key positions are out of bounds")
@@ -283,6 +293,7 @@ func TestNewContext(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 
 			assert.EqualError(t, err, "validation failed: --include positions are out of bounds")
@@ -299,6 +310,7 @@ func TestNewContext(t *testing.T) {
 				"/base.csv",
 				"/delta.csv",
 				',',
+				false,
 				false,
 			)
 
@@ -323,6 +335,7 @@ func TestNewContext(t *testing.T) {
 				"/delta.csv",
 				',',
 				false,
+				false,
 			)
 			assert.EqualError(t, err, "base-file and delta-file columns count do not match")
 		})
@@ -343,12 +356,13 @@ func TestNewContext(t *testing.T) {
 			"/delta.csv",
 			',',
 			false,
+			false,
 		)
 
 		assert.EqualError(t, err, "only one of --columns or --ignore-columns")
 	})
 
-	t.Run("should fail when titles are different", func(t *testing.T) {
+	t.Run("should fail when delta has a title not in base", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name"), os.ModePerm))
 		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,fullname"), os.ModePerm))
@@ -367,7 +381,29 @@ func TestNewContext(t *testing.T) {
 			true,
 		)
 
-		assert.EqualError(t, err, "base-file and delta-file titles do not match: title missing in delta-file: name")
+		assert.EqualError(t, err, "base-file and delta-file titles do not match: title in delta-file not present in base-file: fullname")
+	})
+
+	t.Run("should fail when base has a title missing from delta", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name"), os.ModePerm))
+		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,age"), os.ModePerm))
+
+		_, err := cmd.NewContext(
+			fs,
+			nil,
+			nil,
+			nil,
+			nil,
+			"json",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+
+		assert.EqualError(t, err, "base-file and delta-file titles do not match: title in delta-file not present in base-file: age")
 	})
 
 	t.Run("should fail when base-file has duplicate titles", func(t *testing.T) {
@@ -412,6 +448,7 @@ func TestConfig_DigestConfig(t *testing.T) {
 			"/delta.csv",
 			',',
 			false,
+			false,
 		)
 		assert.NoError(t, err)
 
@@ -447,6 +484,7 @@ func TestConfig_DigestConfig(t *testing.T) {
 			"/base.csv",
 			"/delta.csv",
 			',',
+			false,
 			false,
 		)
 		assert.NoError(t, err)
