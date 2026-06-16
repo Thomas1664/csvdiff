@@ -12,9 +12,11 @@ type Config struct {
 	Key         Positions
 	Value       Positions
 	Include     Positions
+	Reorder     Positions
 	Reader      io.Reader
 	Separator   rune
 	LazyQuotes  bool
+	SkipHeaders bool
 }
 
 // NewConfig creates an instance of Config struct.

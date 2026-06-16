@@ -57,6 +57,7 @@ Flags:
       --include ints          Include positions in CSV to display Eg: 1,2. Default is entire row
   -p, --primary-key ints      Primary key positions of the Input CSV as comma separated values Eg: 1,2 (default [0])
   -s, --separator string      use specific separator (\t, or any one character string) (default ",")
+      --titles                treat first row as titles and match columns by title
       --time                  Measure time
   -t, --toggle                Help message for toggle
       --version               version for csvdiff
@@ -147,6 +148,12 @@ There are a number of formats supported
     "1615,905,deleted-website.com,com,19833,33110,deleted-website.com,com,1613,902,19835,33135"
   ]
 }
+```
+
+- If your CSV files have titles and column order can vary between files, use `--titles` to compare columns by title names.
+
+```bash
+% csvdiff base.csv delta.csv --titles
 ```
 
 ## Build locally
