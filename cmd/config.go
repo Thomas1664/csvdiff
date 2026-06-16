@@ -45,7 +45,6 @@ func NewContext(
 	lazyQuotes bool,
 	titles bool,
 ) (*Context, error) {
-	titlesEnabled := titles
 	baseHeaders, err := getHeaders(fs, baseFilename, separator, lazyQuotes)
 	if err != nil {
 		return nil, fmt.Errorf("error in base-file: %v", err)
@@ -70,7 +69,7 @@ func NewContext(
 	}
 
 	deltaReorderPositions := digest.Positions{}
-	if titlesEnabled {
+	if titles {
 		deltaReorderPositions, err = getDeltaReorderPositions(baseHeaders, deltaHeaders)
 		if err != nil {
 			return nil, fmt.Errorf("base-file and delta-file titles do not match: %v", err)
@@ -99,7 +98,7 @@ func NewContext(
 		recordCount:            baseRecordCount,
 		separator:              separator,
 		lazyQuotes:             lazyQuotes,
-		titles:                 titlesEnabled,
+		titles:                 titles,
 	}
 
 	if err := ctx.validate(); err != nil {
@@ -231,20 +230,14 @@ func getDeltaReorderPositions(baseHeaders, deltaHeaders []string) (digest.Positi
 		if _, exists := deltaByTitle[title]; exists {
 			return nil, fmt.Errorf("duplicate title in delta-file: %s", title)
 		}
-		deltaByTitle[title] = i
-	}
-
-	for _, title := range deltaHeaders {
 		if _, exists := baseHeaderSet[title]; !exists {
 			return nil, fmt.Errorf("title in delta-file not present in base-file: %s", title)
 		}
+		deltaByTitle[title] = i
 	}
 
 	reorder := make(digest.Positions, len(baseHeaders))
 	for i, title := range baseHeaders {
-		if _, exists := deltaByTitle[title]; !exists {
-			return nil, fmt.Errorf("title missing in delta-file: %s", title)
-		}
 		reorder[i] = deltaByTitle[title]
 	}
 

@@ -384,7 +384,7 @@ func TestNewContext(t *testing.T) {
 		assert.EqualError(t, err, "base-file and delta-file titles do not match: title in delta-file not present in base-file: fullname")
 	})
 
-	t.Run("should fail when base has a title missing from delta", func(t *testing.T) {
+	t.Run("should fail when delta and base titles differ", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name"), os.ModePerm))
 		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,age"), os.ModePerm))
@@ -404,6 +404,28 @@ func TestNewContext(t *testing.T) {
 		)
 
 		assert.EqualError(t, err, "base-file and delta-file titles do not match: title in delta-file not present in base-file: age")
+	})
+
+	t.Run("should fail when delta-file has duplicate titles", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name"), os.ModePerm))
+		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,id"), os.ModePerm))
+
+		_, err := cmd.NewContext(
+			fs,
+			nil,
+			nil,
+			nil,
+			nil,
+			"json",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+
+		assert.EqualError(t, err, "base-file and delta-file titles do not match: duplicate title in delta-file: id")
 	})
 
 	t.Run("should fail when base-file has duplicate titles", func(t *testing.T) {
