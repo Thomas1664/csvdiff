@@ -369,6 +369,28 @@ func TestNewContext(t *testing.T) {
 
 		assert.EqualError(t, err, "base-file and delta-file titles do not match: title missing in delta-file: name")
 	})
+
+	t.Run("should fail when base-file has duplicate titles", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,id"), os.ModePerm))
+		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,name"), os.ModePerm))
+
+		_, err := cmd.NewContext(
+			fs,
+			nil,
+			nil,
+			nil,
+			nil,
+			"json",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+
+		assert.EqualError(t, err, "base-file and delta-file titles do not match: duplicate title in base-file: id")
+	})
 }
 
 func TestConfig_DigestConfig(t *testing.T) {

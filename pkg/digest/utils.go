@@ -46,6 +46,9 @@ func normalizeLine(line []string, reorder Positions) []string {
 
 	normalized := make([]string, len(reorder))
 	for i, sourcePos := range reorder {
+		if sourcePos < 0 || sourcePos >= len(line) {
+			return line
+		}
 		normalized[i] = line[sourcePos]
 	}
 

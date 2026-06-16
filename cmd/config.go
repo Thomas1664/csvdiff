@@ -218,6 +218,14 @@ func getHeaders(fs afero.Fs, filename string, separator rune, lazyQuotes bool) (
 }
 
 func getDeltaReorderPositions(baseHeaders, deltaHeaders []string) (digest.Positions, error) {
+	baseHeaderSet := make(map[string]struct{}, len(baseHeaders))
+	for _, title := range baseHeaders {
+		if _, exists := baseHeaderSet[title]; exists {
+			return nil, fmt.Errorf("duplicate title in base-file: %s", title)
+		}
+		baseHeaderSet[title] = struct{}{}
+	}
+
 	deltaByTitle := make(map[string]int, len(deltaHeaders))
 	for i, title := range deltaHeaders {
 		if _, exists := deltaByTitle[title]; exists {
