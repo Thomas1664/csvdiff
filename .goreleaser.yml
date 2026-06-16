@@ -2,7 +2,7 @@ project_name: csvdiff
 
 release:
   github:
-    owner: aswinkarthik
+    owner: thomas1664
     name: csvdiff
 
 builds:
