@@ -17,6 +17,7 @@ type Context struct {
 	primaryKeyPositions    []int
 	valueColumnPositions   []int
 	includeColumnPositions []int
+	deltaReorderPositions  []int
 	format                 string
 	baseFilename           string
 	deltaFilename          string
@@ -25,6 +26,7 @@ type Context struct {
 	recordCount            int
 	separator              rune
 	lazyQuotes             bool
+	titles                 bool
 }
 
 // NewContext can take all CLI flags and create a cmd.Context
@@ -41,17 +43,21 @@ func NewContext(
 	deltaFilename string,
 	separator rune,
 	lazyQuotes bool,
+	titles ...bool,
 ) (*Context, error) {
-	baseRecordCount, err := getColumnsCount(fs, baseFilename, separator, lazyQuotes)
+	titlesEnabled := len(titles) > 0 && titles[0]
+	baseHeaders, err := getHeaders(fs, baseFilename, separator, lazyQuotes)
 	if err != nil {
 		return nil, fmt.Errorf("error in base-file: %v", err)
 	}
 
-	deltaRecordCount, err := getColumnsCount(fs, deltaFilename, separator, lazyQuotes)
+	deltaHeaders, err := getHeaders(fs, deltaFilename, separator, lazyQuotes)
 	if err != nil {
 		return nil, fmt.Errorf("error in delta-file: %v", err)
 	}
 
+	baseRecordCount := len(baseHeaders)
+	deltaRecordCount := len(deltaHeaders)
 	if baseRecordCount != deltaRecordCount {
 		return nil, fmt.Errorf("base-file and delta-file columns count do not match")
 	}
@@ -61,6 +67,14 @@ func NewContext(
 	}
 	if len(ignoreValueColumnPositions) > 0 {
 		valueColumnPositions = inferValueColumns(baseRecordCount, ignoreValueColumnPositions)
+	}
+
+	deltaReorderPositions := digest.Positions{}
+	if titlesEnabled {
+		deltaReorderPositions, err = getDeltaReorderPositions(baseHeaders, deltaHeaders)
+		if err != nil {
+			return nil, fmt.Errorf("base-file and delta-file titles do not match: %v", err)
+		}
 	}
 
 	baseFile, err := fs.Open(baseFilename)
@@ -76,6 +90,7 @@ func NewContext(
 		primaryKeyPositions:    primaryKeyPositions,
 		valueColumnPositions:   valueColumnPositions,
 		includeColumnPositions: includeColumnPositions,
+		deltaReorderPositions:  deltaReorderPositions,
 		format:                 format,
 		baseFilename:           baseFilename,
 		deltaFilename:          deltaFilename,
@@ -84,6 +99,7 @@ func NewContext(
 		recordCount:            baseRecordCount,
 		separator:              separator,
 		lazyQuotes:             lazyQuotes,
+		titles:                 titlesEnabled,
 	}
 
 	if err := ctx.validate(); err != nil {
@@ -181,10 +197,10 @@ func assertAll(elements []int, assertFn func(element int) bool) bool {
 	return true
 }
 
-func getColumnsCount(fs afero.Fs, filename string, separator rune, lazyQuotes bool) (int, error) {
+func getHeaders(fs afero.Fs, filename string, separator rune, lazyQuotes bool) ([]string, error) {
 	base, err := fs.Open(filename)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer base.Close()
 	csvReader := csv.NewReader(base)
@@ -193,24 +209,45 @@ func getColumnsCount(fs afero.Fs, filename string, separator rune, lazyQuotes bo
 	record, err := csvReader.Read()
 	if err != nil {
 		if err == io.EOF {
-			return 0, fmt.Errorf("unable to process headers from csv file. EOF reached. invalid CSV file")
+			return nil, fmt.Errorf("unable to process headers from csv file. EOF reached. invalid CSV file")
 		}
-		return 0, err
+		return nil, err
 	}
 
-	return len(record), nil
+	return record, nil
+}
+
+func getDeltaReorderPositions(baseHeaders, deltaHeaders []string) (digest.Positions, error) {
+	deltaByTitle := make(map[string]int, len(deltaHeaders))
+	for i, title := range deltaHeaders {
+		if _, exists := deltaByTitle[title]; exists {
+			return nil, fmt.Errorf("duplicate title in delta-file: %s", title)
+		}
+		deltaByTitle[title] = i
+	}
+
+	reorder := make(digest.Positions, len(baseHeaders))
+	for i, title := range baseHeaders {
+		if _, exists := deltaByTitle[title]; !exists {
+			return nil, fmt.Errorf("title missing in delta-file: %s", title)
+		}
+		reorder[i] = deltaByTitle[title]
+	}
+
+	return reorder, nil
 }
 
 // BaseDigestConfig creates a digest.Context from cmd.Context
 // that is needed to start the diff process
 func (c *Context) BaseDigestConfig() (digest.Config, error) {
 	return digest.Config{
-		Reader:     c.baseFile,
-		Value:      c.valueColumnPositions,
-		Key:        c.primaryKeyPositions,
-		Include:    c.includeColumnPositions,
-		Separator:  c.separator,
-		LazyQuotes: c.lazyQuotes,
+		Reader:      c.baseFile,
+		Value:       c.valueColumnPositions,
+		Key:         c.primaryKeyPositions,
+		Include:     c.includeColumnPositions,
+		Separator:   c.separator,
+		LazyQuotes:  c.lazyQuotes,
+		SkipHeaders: c.titles,
 	}, nil
 }
 
@@ -218,12 +255,14 @@ func (c *Context) BaseDigestConfig() (digest.Config, error) {
 // that is needed to start the diff process
 func (c *Context) DeltaDigestConfig() (digest.Config, error) {
 	return digest.Config{
-		Reader:     c.deltaFile,
-		Value:      c.valueColumnPositions,
-		Key:        c.primaryKeyPositions,
-		Include:    c.includeColumnPositions,
-		Separator:  c.separator,
-		LazyQuotes: c.lazyQuotes,
+		Reader:      c.deltaFile,
+		Value:       c.valueColumnPositions,
+		Key:         c.primaryKeyPositions,
+		Include:     c.includeColumnPositions,
+		Separator:   c.separator,
+		LazyQuotes:  c.lazyQuotes,
+		Reorder:     c.deltaReorderPositions,
+		SkipHeaders: c.titles,
 	}, nil
 }
 

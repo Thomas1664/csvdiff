@@ -347,6 +347,28 @@ func TestNewContext(t *testing.T) {
 
 		assert.EqualError(t, err, "only one of --columns or --ignore-columns")
 	})
+
+	t.Run("should fail when titles are different", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name"), os.ModePerm))
+		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("id,fullname"), os.ModePerm))
+
+		_, err := cmd.NewContext(
+			fs,
+			nil,
+			nil,
+			nil,
+			nil,
+			"json",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+
+		assert.EqualError(t, err, "base-file and delta-file titles do not match: title missing in delta-file: name")
+	})
 }
 
 func TestConfig_DigestConfig(t *testing.T) {
@@ -420,6 +442,36 @@ func TestConfig_DigestConfig(t *testing.T) {
 		assert.NotNil(t, deltaConfig.Reader)
 		assert.Equal(t, digest.Positions{3}, deltaConfig.Value)
 		assert.Equal(t, primaryColumns, deltaConfig.Key)
+	})
+	t.Run("should map delta columns based on titles", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		assert.NoError(t, afero.WriteFile(fs, "/base.csv", []byte("id,name,age"), os.ModePerm))
+		assert.NoError(t, afero.WriteFile(fs, "/delta.csv", []byte("name,age,id"), os.ModePerm))
+
+		ctx, err := cmd.NewContext(
+			fs,
+			primaryColumns,
+			valueColumns,
+			nil,
+			includeColumns,
+			"jSOn",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+		assert.NoError(t, err)
+
+		baseConfig, err := ctx.BaseDigestConfig()
+		assert.NoError(t, err)
+		assert.True(t, baseConfig.SkipHeaders)
+		assert.Nil(t, baseConfig.Reorder)
+
+		deltaConfig, err := ctx.DeltaDigestConfig()
+		assert.NoError(t, err)
+		assert.True(t, deltaConfig.SkipHeaders)
+		assert.Equal(t, digest.Positions{2, 0, 1}, deltaConfig.Reorder)
 	})
 }
 func setupFiles(t *testing.T, fs afero.Fs) {

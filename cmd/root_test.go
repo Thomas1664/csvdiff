@@ -44,6 +44,7 @@ func TestRunContext(t *testing.T) {
 			"/delta.csv",
 			',',
 			false,
+			false,
 		)
 		assert.NoError(t, err)
 
@@ -69,5 +70,46 @@ func TestRunContext(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expected, outStream.String())
 
+	})
+
+	t.Run("should ignore column order differences when titles are enabled", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		{
+			baseContent := []byte(`id,name,age
+1,tom,2
+2,ryan,20
+`)
+			err := afero.WriteFile(fs, "/base.csv", baseContent, os.ModePerm)
+			assert.NoError(t, err)
+		}
+		{
+			deltaContent := []byte(`name,age,id
+tom,2,1
+ryan,20,2
+`)
+			err := afero.WriteFile(fs, "/delta.csv", deltaContent, os.ModePerm)
+			assert.NoError(t, err)
+		}
+
+		ctx, err := NewContext(
+			fs,
+			digest.Positions{0},
+			digest.Positions{},
+			nil,
+			digest.Positions{},
+			"json",
+			"/base.csv",
+			"/delta.csv",
+			',',
+			false,
+			true,
+		)
+		assert.NoError(t, err)
+
+		outStream := &bytes.Buffer{}
+		errStream := &bytes.Buffer{}
+		err = runContext(ctx, outStream, errStream)
+		assert.NoError(t, err)
+		assert.Equal(t, "{\n  \"Additions\": [],\n  \"Modifications\": [],\n  \"Deletions\": []\n}", outStream.String())
 	})
 }

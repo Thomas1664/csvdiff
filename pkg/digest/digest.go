@@ -60,6 +60,14 @@ func Create(config *Config) (map[uint64]uint64, map[uint64][]string, error) {
 
 func readAndProcess(config *Config, reader *csv.Reader, digestChannel chan<- []Digest, errorChannel chan<- error) {
 	var wg sync.WaitGroup
+	if config.SkipHeaders {
+		if _, err := reader.Read(); err != nil {
+			close(digestChannel)
+			errorChannel <- err
+			return
+		}
+	}
+
 	for {
 		lines, eofReached, err := getNextNLines(reader)
 		if err != nil {
@@ -68,6 +76,7 @@ func readAndProcess(config *Config, reader *csv.Reader, digestChannel chan<- []D
 			errorChannel <- err
 			return
 		}
+		lines = normalizeLines(lines, config.Reorder)
 
 		wg.Add(1)
 		go createDigestForNLines(lines, config, digestChannel, &wg)
